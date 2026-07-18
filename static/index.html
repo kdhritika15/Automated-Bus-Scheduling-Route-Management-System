@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Smart Bus Scheduler</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"
+rel="stylesheet" />
+<style>
+:root {
+--navy: #0b1220;
+--blue: #1d4ed8;
+--cyan: #22d3ee;
+}
+
+html {
+scroll-behavior: smooth;
+}
+
+body {
+font-family: 'Inter', sans-serif;
+color: #1e293b;
+min-height: 100vh;
+position: relative;
+background-image:
+linear-gradient(160deg, rgba(11,18,32,0.92) 0%, rgba(29,78,216,0.88) 45%, rgba(8,145,178,0.85) 100%),
+url('images/traffic-vehicle-urban-reflections-city.jpg');
+background-size: cover;
+background-repeat: no-repeat;
+background-attachment: fixed;
+background-position: center;
+}
+
+/* Soft ambient glow shapes for depth — purely decorative, non-interactive */
+body::before,
+body::after {
+content: "";
+position: fixed;
+border-radius: 50%;
+filter: blur(90px);
+z-index: -1;
+pointer-events: none;
+opacity: 0.55;
+}
+body::before {
+width: 480px;
+height: 480px;
+top: -120px;
+left: -120px;
+background: radial-gradient(circle, var(--cyan), transparent 70%);
+}
+body::after {
+width: 520px;
+height: 520px;
+bottom: -160px;
+right: -140px;
+background: radial-gradient(circle, var(--blue), transparent 70%);
+}
+
+h1, h2, h3, h4 {
+font-family: 'Poppins', sans-serif;
+letter-spacing: -0.01em;
+}
+
+.glass {
+background: rgba(255, 255, 255, 0.88);
+backdrop-filter: blur(16px);
+-webkit-backdrop-filter: blur(16px);
+border: 1px solid rgba(255, 255, 255, 0.6);
+border-radius: 20px;
+box-shadow: 0 12px 32px rgba(11, 18, 32, 0.22);
+padding: 1.75rem;
+margin-bottom: 1.5rem;
+transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.glass:hover {
+transform: translateY(-3px);
+box-shadow: 0 18px 42px rgba(11, 18, 32, 0.28);
+}
+
+#map {
+background: rgba(255, 255, 255, 0.95);
+border-radius: 20px;
+box-shadow: 0 12px 32px rgba(11, 18, 32, 0.22);
+}
+
+#bus-result:not(:empty) {
+margin-top: 20px;
+padding: 16px 18px;
+background: linear-gradient(135deg, #ecfeff, #e0f2fe);
+border: 1px solid #67e8f9;
+border-left: 4px solid #06b6d4;
+border-radius: 14px;
+font-weight: 500;
+font-size: 16px;
+color: #0e7490;
+box-shadow: 0 6px 18px rgba(6, 182, 212, 0.15);
+}
+
+.bus-card {
+background: rgba(255, 255, 255, 0.92);
+backdrop-filter: blur(10px);
+padding: 16px;
+border: 1px solid rgba(226, 232, 240, 0.9);
+margin-bottom: 10px;
+border-radius: 16px;
+box-shadow: 0 6px 16px rgba(11, 18, 32, 0.08);
+transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.bus-card:hover {
+transform: translateY(-4px);
+box-shadow: 0 16px 34px rgba(11, 18, 32, 0.18);
+}
+
+/* Sticky glass navbar underline animation on nav links */
+.nav-link {
+position: relative;
+}
+.nav-link::after {
+content: "";
+position: absolute;
+left: 0;
+bottom: -4px;
+width: 0%;
+height: 2px;
+background: var(--cyan);
+transition: width 0.25s ease;
+}
+.nav-link:hover::after {
+width: 100%;
+}
+</style>
+</head>
+<body>
+
+<!-- Header (merged: single header with title, subtitle, and nav) -->
+<header class="sticky top-0 z-50 backdrop-blur-xl bg-gradient-to-r from-[#0b1220]/90 via-blue-900/85 to-cyan-800/80 border-b border-white/10 shadow-lg text-white">
+<div class="max-w-6xl mx-auto px-4 py-5 text-center">
+<h1 class="text-2xl md:text-3xl font-bold tracking-tight">🚍 Automated Bus Scheduling &amp; Route Management</h1>
+<p class="text-xs md:text-sm mt-2 text-cyan-100/90">Live updates &nbsp;|&nbsp; Smart routing &nbsp;|&nbsp; Dynamic availability</p>
+<nav class="mt-4 flex flex-wrap justify-center items-center gap-x-6 gap-y-2">
+<a href="#search" class="nav-link hover:text-cyan-300 transition">Search</a>
+<a href="#live" class="nav-link hover:text-cyan-300 transition">Live Buses</a>
+<a href="#maps" class="nav-link hover:text-cyan-300 transition">Map&amp;Rout</a>
+<a href="#admin" class="nav-link hover:text-cyan-300 transition">Admin Panel</a>
+<a href="#scheduling" class="nav-link hover:text-cyan-300 transition">Scheduling</a>
+<button id="loginBtn" class="bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-medium px-4 py-1.5 rounded-full shadow-md hover:shadow-cyan-400/40 hover:scale-105 transition">Admin Login</button>
+<button id="logoutBtn" class="bg-white/90 text-blue-800 font-medium px-4 py-1.5 rounded-full shadow-md hover:bg-white hover:scale-105 transition hidden">Logout</button>
+</nav>
+</div>
+</header>
+
+<!-- Dashboard Section -->
+<section id="dashboard" class="max-w-4xl mx-auto mt-8 px-4">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+<div class="glass flex items-center gap-4 transition duration-200 transform hover:-translate-y-1 hover:shadow-xl">
+<div class="bg-gradient-to-br from-blue-500 to-cyan-400 text-white p-3 rounded-full shrink-0 shadow-md">
+<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<rect x="3" y="6" width="18" height="10" rx="2"/>
+<circle cx="7.5" cy="18" r="1.5"/>
+<circle cx="16.5" cy="18" r="1.5"/>
+<line x1="3" y1="11" x2="21" y2="11"/>
+</svg>
+</div>
+<div>
+<p id="totalBusesCount" class="text-3xl font-bold text-blue-700">0</p>
+<p class="text-sm text-gray-600">Total Buses</p>
+</div>
+</div>
+
+<div class="glass flex items-center gap-4 transition duration-200 transform hover:-translate-y-1 hover:shadow-xl">
+<div class="bg-gradient-to-br from-blue-500 to-cyan-400 text-white p-3 rounded-full shrink-0 shadow-md">
+<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M4 20 L10 6 L14 16 L20 4"/>
+<circle cx="4" cy="20" r="1.5"/>
+<circle cx="20" cy="4" r="1.5"/>
+</svg>
+</div>
+<div>
+<p id="activeRoutesCount" class="text-3xl font-bold text-blue-700">0</p>
+<p class="text-sm text-gray-600">Active Routes</p>
+</div>
+</div>
+
+<div class="glass flex items-center gap-4 transition duration-200 transform hover:-translate-y-1 hover:shadow-xl">
+<div class="bg-gradient-to-br from-blue-500 to-cyan-400 text-white p-3 rounded-full shrink-0 shadow-md">
+<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="12" cy="12" r="9"/>
+<path d="M8 12 L11 15 L16 9"/>
+</svg>
+</div>
+<div>
+<p id="availableBusesCount" class="text-3xl font-bold text-blue-700">0</p>
+<p class="text-sm text-gray-600">Available Buses</p>
+</div>
+</div>
+
+<div class="glass flex items-center gap-4 transition duration-200 transform hover:-translate-y-1 hover:shadow-xl">
+<div class="bg-gradient-to-br from-blue-500 to-cyan-400 text-white p-3 rounded-full shrink-0 shadow-md">
+<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<rect x="4" y="12" width="3" height="8"/>
+<rect x="10.5" y="7" width="3" height="13"/>
+<rect x="17" y="3" width="3" height="17"/>
+</svg>
+</div>
+<div>
+<p id="avgPassengerLoadCount" class="text-3xl font-bold text-blue-700">0%</p>
+<p class="text-sm text-gray-600">Avg. Passenger Load</p>
+</div>
+</div>
+
+</div>
+</section>
+
+<!-- Search Section -->
+<section id="search" class="max-w-4xl mx-auto mt-8 px-4 glass">
+<h2 class="text-2xl font-semibold mb-4 text-slate-800">🔍 Search Your Route</h2>
+<div class="flex flex-col md:flex-row gap-4">
+<input type="text" id="source" class="p-3 border border-slate-300 bg-white/80 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition"
+placeholder="Enter Source" />
+<input type="text" id="destination" class="p-3 border border-slate-300 bg-white/80 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition"
+placeholder="Enter Destination" />
+<button id="searchBtn" class="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-3
+rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition whitespace-nowrap">Search</button>
+</div>
+<div id="bus-result" class="mt-4 text-lg font-semibold text-green-700"></div>
+<div id="bus-details" class="mt-4 text-lg font-medium text-green-700"></div>
+</section>
+
+<!-- Live Bus Availability -->
+<section id="live" class="max-w-4xl mx-auto px-4 glass">
+<h3 class="text-xl font-semibold mb-3 text-slate-800">🟢 Live Bus Availability</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="live-bus-list">
+<div class="p-4 bg-white/80 shadow rounded-xl text-slate-600">Search a route above to see live bus availability.</div>
+</div>
+</section>
+
+<!-- Google Map Placeholder -->
+<section id="maps" class="max-w-4xl mx-auto mt-6 px-4 glass">
+<h3 class="text-xl font-semibold mb-2 text-slate-800">🗺️ Live Route Map</h3>
+<div class="overflow-hidden rounded-2xl shadow-md border border-white/60">
+<!-- Default view before any search; updated dynamically by script.js on Search -->
+<iframe
+id="routeMapFrame"
+src="https://www.google.com/maps?q=Hyderabad&output=embed"
+width="100%" height="400" style="border:0;" allowfullscreen="" loading="lazy"
+referrerpolicy="no-referrer-when-downgrade"></iframe>
+</div>
+</section>
+
+<!-- ================= Admin Login Form ================= -->
+<section id="loginForm" class="max-w-4xl mx-auto mt-10 px-4 glass hidden">
+<h3 class="text-2xl font-semibold mb-4 text-slate-800">🔐 Admin Login</h3>
+<div class="space-y-4">
+<input id="loginUsername" type="text" placeholder="Username" class="p-3 border border-slate-300 bg-white/80 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition" />
+<input id="loginPassword" type="password" placeholder="Password" class="p-3 border border-slate-300 bg-white/80 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition" />
+<div class="flex gap-3">
+<button id="loginSubmitBtn" class="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-3 rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition">Sign In</button>
+<button id="loginCancelBtn" class="bg-slate-500 text-white px-6 py-3 rounded-xl shadow-md hover:bg-slate-600 transition">Cancel</button>
+</div>
+</div>
+</section>
+
+<!-- ================= Admin Module Starts ================= -->
+<section id="admin" class="max-w-4xl mx-auto mt-10 px-4 glass hidden">
+<h3 class="text-2xl font-semibold mb-4 text-slate-800">🛠️ Admin Panel</h3>
+<div class="space-y-4">
+<input id="busIdInput" type="text" placeholder="Add new bus ID" class="p-3 border border-slate-300 bg-white/80 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition" />
+<input id="sourceInputAdmin" type="text" placeholder="Enter Source" class="p-3 border border-slate-300 bg-white/80 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition" />
+<input id="destinationInputAdmin" type="text" placeholder="Enter Destination" class="p-3 border border-slate-300 bg-white/80 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition" />
+<input id="routeInput" type="text" placeholder="Assign to Route" class="p-3 border border-slate-300 bg-white/80 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition" />
+<input id="etaInput" type="text" placeholder="ETA (e.g. 8 mins)" class="p-3 border border-slate-300 bg-white/80 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition" />
+<button id="addBusBtn" class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-6 py-3 rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] transition">Add Bus</button>
+<button id="cancelEditBtn" class="bg-slate-500 text-white px-6 py-3 rounded-xl shadow-md hover:bg-slate-600 transition hidden">Cancel Edit</button>
+<div class="mt-4">
+<h4 class="text-lg font-semibold text-slate-800">Existing Buses</h4>
+<ul id="busList" class="list-disc pl-5 space-y-1">
+<li>Bus 42X - Central Route</li>
+<li>Bus 17A - East Route</li>
+</ul>
+</div>
+</div>
+</section>
+<!-- ================= Admin Module Ends ================= -->
+
+<!-- ================= Scheduling Module Starts ================= -->
+<section id="scheduling" class="max-w-4xl mx-auto mt-10 px-4 glass">
+<h3 class="text-2xl font-semibold mb-4 text-slate-800">📅 Dynamic Bus Scheduling</h3>
+<div id="schedule-updates" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+<!-- Dynamic content will load here -->
+</div>
+</section>
+<!-- ================= Scheduling Module Ends ================= -->
+
+<script src="script.js?v=8"></script>
+<footer class="mt-10 backdrop-blur-xl bg-[#0b1220]/85 border-t border-white/10 text-slate-200 text-center py-6">
+<p class="text-sm">&copy; 2025 Automated Bus Scheduling System &nbsp;|&nbsp; All rights reserved</p>
+</footer>
+</body>
+</html>
